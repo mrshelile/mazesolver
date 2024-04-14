@@ -14,7 +14,7 @@ int swingPathPos = 0;
 float duration, distance;
 bool isCloseToObstagle = false;
 const int closeRange = 25;
-
+bool foundPath = false;
 void motorinit() {
   pinMode(st1, OUTPUT);
   pinMode(st2, OUTPUT);
@@ -25,7 +25,7 @@ void ultrasonicInit() {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
 }
-void ultrasonicLogin() {
+bool ultrasonicIsToClose() {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
@@ -39,6 +39,7 @@ void ultrasonicLogin() {
   Serial.print(distance);
   Serial.println("cm");
   delay(30);
+  return isCloseToObstagle;
 }
 
 bool isOnThelineIRsensor() {
@@ -90,10 +91,13 @@ void moveSwingPath() {
   int angleMax = 90;
   int stepMove = 4;
   int currentPos = swingPath.read();
+  // foundPath = true;
   for (swingPathPos = 0; swingPathPos <= angleMax; swingPathPos += stepMove) {  // goes from 0 degrees to 180 degrees
-    ultrasonicLogin();
-    if (!isCloseToObstagle)
-      break;
+    if (!ultrasonicIsToClose()) {
+      foundPath = true;
+      swingPath.write(90);
+      return;
+    }
     // in steps of 1 degree
     swingPath.write(swingPathPos);  // tell servo to go to position in variable 'pos'
     delay(15);                      // waits 15ms for the servo to reach the position
@@ -102,43 +106,60 @@ void moveSwingPath() {
     Serial.println(currentPos);
   }
   for (swingPathPos = angleMax; swingPathPos >= 0; swingPathPos -= stepMove) {  // goes from 180 degrees to 0 degrees
-    ultrasonicLogin();
-    if (!isCloseToObstagle)
-      break;
+    if (!ultrasonicIsToClose()) {
+      foundPath = true;
+      swingPath.write(90);
+      return;
+    }
     swingPath.write(swingPathPos);  // tell servo to go to position in variable 'pos'
     delay(15);                      // waits 15ms for the servo to reach the position
     currentPos = swingPath.read();  // Read the current position after move
     Serial.print("Current Servo Angle: ");
     Serial.println(currentPos);
   }
-  if (!isCloseToObstagle) {
-    swingPath.write(90);
-  }
+  foundPath = false;
+  
 }
 
 void loop() {
-// turnLeft();
-//  fwd();
-  rev();
-// stop1() 
+  // turnLeft();
+  //  fwd();
+  // rev();
+  // stop1();
+  theMaze();
 }
 
 void theMaze() {
-  ultrasonicLogin();
+
   if (isOnThelineIRsensor() == true) {
-     // stop car
+    // stop car
+    stop1();
+    Serial.println("Stop");
+    delay(100);
   } else {
-    if (isCloseToObstagle == true) {
-      // stop car
-      while (isCloseToObstagle) {
-        moveSwingPath();
-      }
-      // turnCarStepMotor(false);
-       // move
+    if (!ultrasonicIsToClose()) {
+      fwd();
+      Serial.println("Forward");
     } else {
-      // moveForwardStepMotor();
+      stop1();
+      Serial.println("Stop");
+      while(true){
+        moveSwingPath();
+        if(!foundPath){
+          rev();
+          Serial.println("Rev");
+          delay(2000);
+         
+          
+        }
+        else{
+           Serial.println("found path");
+           break;
+        }
+      }
+       Serial.println("Turn");
+       turnLeft();
+      //just turn
     }
-    // delay(500);
   }
-  // ultrasonicLogin();
 }
